@@ -196,10 +196,18 @@
       }
 
       async function fetchGsvProps(hours, minutes) {
+        if (minutes < 10) minutes = `0${minutes}`;
         const res = await fetch(`/digits/${hours}${minutes}.csv`);
         const data = await res.text();
         const lines = data.split('\n').slice(1); // skip the header
-        return lines.map((line) => {
+
+        if (hours < 10) hours = `0${hours}`;
+        const paddedRes = await fetch(`/digits/${hours}${minutes}.csv`);
+        const paddedData = await paddedRes.text();
+        const paddedLines = paddedData.split('\n').slice(1); // skip the header
+
+        const allLines = [...lines, ...paddedLines];
+        return allLines.map((line) => {
           const ocrProps = parseOcrLine(line);
 
           return getGoogleStreetviewProps(
