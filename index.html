@@ -11,6 +11,9 @@
         src: url('fonts/LED Dot-Matrix.ttf');
       }
       body {
+        --bg-color: rgb(51, 51, 51);
+        --text-color: rgb(255, 129, 129);
+        --glow-color: #f23434d0;
         margin: 0;
         font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
         background-color: #000;
@@ -23,10 +26,6 @@
         margin: auto auto;
       }
       #time {
-        --bg-color: #816627;
-        --text-color: rgb(231, 220, 18);
-        --glow-color: #dedb82d0;
-
         display: flex;
         flex-direction: row;
         justify-content: center;
@@ -53,6 +52,12 @@
           0 0 15px var(--glow-color), 0 0 20px var(--glow-color);
         border-radius: 10px;
         filter: blur(1px);
+        transition: color 0.2s ease-in-out;
+        user-select: none;
+      }
+      #time:hover {
+        transition: color 0.2s ease-in-out;
+        color: var(--glow-color);
       }
 
       #time-colon {
@@ -88,6 +93,39 @@
           rgba(0, 0, 0, 0.8) 70%
         );
       }
+      #shuffle-button {
+        position: absolute;
+        top: 0;
+        right: 0;
+        width: 24px;
+        height: 24px;
+        padding: 10px;
+        margin: 10px;
+        background-color: var(--bg-color);
+        color: var(--text-color);
+        box-shadow: inset 0 0 10px rgba(0, 0, 0, 0.5);
+        border: 2px solid #fff;
+        border-left-color: #333;
+        border-top-color: #333;
+        box-shadow: inset -2px -2px 0 #333, inset 2px 2px 0 #fff;
+        z-index: 100;
+        border-radius: 10px;
+        cursor: pointer;
+        transition: color 0.2s ease-in-out;
+        filter: blur(0.8px);
+      }
+
+      #shuffle-button:hover {
+        transition: color 0.2s ease-in-out;
+        color: var(--glow-color);
+      }
+
+      #shuffle-button svg {
+        filter: drop-shadow(0 0 5px var(--glow-color))
+          drop-shadow(0 0 10px var(--glow-color))
+          drop-shadow(0 0 15px var(--glow-color))
+          drop-shadow(0 0 20px var(--glow-color));
+      }
     </style>
   </head>
   <body>
@@ -95,6 +133,28 @@
       <span id="time-hours"></span>
       <span id="time-colon">:</span>
       <span id="time-minutes"></span>
+    </div>
+    <div id="shuffle-button">
+      <svg
+        xmlns="http://www.w3.org/2000/svg"
+        width="24"
+        height="24"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="2"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+        class="lucide lucide-shuffle"
+      >
+        <path
+          d="M2 18h1.4c1.3 0 2.5-.6 3.3-1.7l6.1-8.6c.7-1.1 2-1.7 3.3-1.7H22"
+        />
+        <path d="m18 2 4 4-4 4" />
+        <path d="M2 6h1.9c1.5 0 2.9.9 3.6 2.2" />
+        <path d="M22 18h-5.9c-1.3 0-2.6-.7-3.3-1.8l-.5-.8" />
+        <path d="m18 14 4 4-4 4" />
+      </svg>
     </div>
     <div id="streetview">
       <div id="streetview-overlay"></div>
@@ -157,17 +217,20 @@
         });
       }
 
-      function pickRandomGsvProps(gsvProps) {
+      function pickRandomGsvProps(gsvProps, rangeFromMiddle = 10) {
         const sortedLines = gsvProps.sort(
           (a, b) => b.ocrWidth * b.ocrHeight - a.ocrWidth * a.ocrHeight
         );
 
         // pick the one in the middle of the list
         const middleRange = {
-          min: Math.max(0, Math.floor(sortedLines.length / 2) - 10),
+          min: Math.max(
+            0,
+            Math.floor(sortedLines.length / 2) - rangeFromMiddle
+          ),
           max: Math.min(
             sortedLines.length - 1,
-            Math.floor(sortedLines.length / 2) + 10
+            Math.floor(sortedLines.length / 2) + rangeFromMiddle
           ),
         };
 
@@ -179,6 +242,15 @@
 
       function getEmbedUrl(gsvProps) {
         return getGoogleStreetviewEmbedUrl(gsvProps, GOOGLE_MAPS_API_KEY);
+      }
+      function shuffle(rangeFromMiddle = 10) {
+        const randomGsvProps = pickRandomGsvProps(
+          currentGsvProps,
+          rangeFromMiddle
+        );
+        const embedUrl = getEmbedUrl(randomGsvProps);
+        currentUrl = embedUrl;
+        document.getElementById('streetview-iframe').src = embedUrl;
       }
     </script>
 
@@ -197,11 +269,7 @@
         document.getElementById('time-minutes').innerHTML = minutes;
 
         currentGsvProps = await fetchGsvProps(hours, minutes);
-
-        const randomGsvProps = pickRandomGsvProps(currentGsvProps);
-        const embedUrl = getEmbedUrl(randomGsvProps);
-        currentUrl = embedUrl;
-        document.getElementById('streetview-iframe').src = embedUrl;
+        shuffle();
       }
 
       async function updateAndSchedule() {
@@ -221,6 +289,10 @@
       }
 
       updateAndSchedule();
+
+      document
+        .getElementById('shuffle-button')
+        .addEventListener('click', () => shuffle(1000));
     </script>
   </body>
 </html>
