@@ -285,17 +285,17 @@
         clearTimeout(nextInterval);
         await updateTime();
         const now = new Date();
-        const nextHour = new Date(
+        const nextMinute = new Date(
           now.getFullYear(),
           now.getMonth(),
           now.getDate(),
-          now.getHours() + 1,
-          0,
+          now.getHours(),
+          now.getMinutes() + 1,
           0,
           0
         );
-        const timeUntilNextHour = nextHour - now;
-        nextInterval = setTimeout(updateAndSchedule, timeUntilNextHour);
+        const timeUntilNextMinute = nextMinute - now;
+        nextInterval = setTimeout(updateAndSchedule, timeUntilNextMinute);
       }
 
       updateAndSchedule();
