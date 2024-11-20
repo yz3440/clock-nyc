@@ -5,7 +5,7 @@
 2. run `create_db.py`
 3. run `classifier_gui.py` and start classifying w/ "A" to reject and "L" to approve, you can just quit out when you're done
 
-No back button yet
+No back button yet :(
 
 ## basic db explanation
 
