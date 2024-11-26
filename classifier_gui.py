@@ -58,7 +58,7 @@ pg_cursor = pg_conn.cursor()
 pg_cursor.execute("select * from panoramas")
 
 all_checked_panoramas = pg_cursor.fetchall()
-# print(all_checked_panoramas)
+print(all_checked_panoramas)
 all_checked_ids = [tup[0] for tup in all_checked_panoramas]
 
 # print current status
@@ -80,7 +80,11 @@ class TimeBasedViewer(QMainWindow):
         self.current_hour = int(hour)
         self.current_minute = int(minute)
         self.current_row_index = 0
+
+
         self.current_rows = []
+        self.visited_rows = []
+        self.visited_rows_index = None 
         self.limit = int(limit)
         
 
@@ -102,7 +106,7 @@ class TimeBasedViewer(QMainWindow):
         # Create status label
         self.status_label = QLabel()
         self.status_label.setAlignment(Qt.AlignCenter)
-        self.status_label.setMaximumHeight(140)
+        self.status_label.setMaximumHeight(150)
         layout.addWidget(self.status_label)
 
         # Create web view
@@ -117,6 +121,12 @@ class TimeBasedViewer(QMainWindow):
         # Set focus policy to receive keyboard events
         self.setFocusPolicy(Qt.StrongFocus)
 
+    def in_history(self):
+        if self.visited_rows_index is None:
+            return False
+        else: 
+            return self.visited_rows_index < len(self.visited_rows) - 1
+
     def keyPressEvent(self, event: QKeyEvent):
         if event.text() == "c":
             self.next_row()
@@ -126,6 +136,8 @@ class TimeBasedViewer(QMainWindow):
             self.update_approval(True)
         elif event.text() == "a":
             self.update_approval(False)
+        elif event.text() == "b":
+            self.last_row()
 
     def row_to_dict(self, row):
         print(row)
@@ -165,6 +177,10 @@ class TimeBasedViewer(QMainWindow):
             self.status_label.setText(f"No data found for time {time_string}")
 
     def load_current_row(self):
+        
+        if len(self.visited_rows) == 0:
+            self.visited_rows.append(self.current_row_index)
+            self.visited_rows_index = 0 
         """Load the current row data and update the view"""
         if 0 <= self.current_row_index < len(self.current_rows):
             row = self.current_rows[self.current_row_index]
@@ -182,8 +198,11 @@ class TimeBasedViewer(QMainWindow):
                 self.current_row_data = json.dumps(row_dict)
                 time_string = self.get_time_string()
                 self.status_label.setText(
-                    f"Time: {time_string}\n\nPress [A] to reject\nPress [L] to approve\n\nPrefer clarity + weirdness.\nTry not to do more than 1 per minute of the following: transit lines, markings on cars/trucks, street numbers, etc.\nyou'll get the gist"
+                    f"Time: {time_string}\n\nPress [A] to reject\nPress [L] to approve\nPress [B] to go back (does not work across minutes)\n\nPrefer clarity + weirdness.\nTry not to do more than 1 per minute of the following: transit lines, markings on cars/trucks, street numbers, etc.\nyou'll get the gist"
                 )
+
+
+
 
     def on_load_finished(self, ok):
         """Called when the page finishes loading"""
@@ -199,20 +218,45 @@ class TimeBasedViewer(QMainWindow):
     def update_approval(self, approved = False):
         print(self.current_rows[self.current_row_index])
         cursor.execute("UPDATE panoramas SET approved = ? WHERE id = ?", (approved, self.current_rows[self.current_row_index][0]))
-        pg_cursor.execute("INSERT INTO panoramas (id, panorama_id, text, ocr_yaw, ocr_pitch, ocr_width, ocr_height, lat, lng, heading, pitch, roll, approved) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)", self.current_rows[self.current_row_index][:-1] + (approved,))
+        # check if we're in history, if we are, we're updating
+        if self.in_history():
+            pg_cursor.execute("UPDATE panoramas SET approved = %s WHERE id = %s", ([(approved,), (self.current_rows[self.current_row_index][0], )]))
+            # pg_cursor.execute("UPDATE panoramas (id, panorama_id, text, ocr_yaw, ocr_pitch, ocr_width, ocr_height, lat, lng, heading, pitch, roll, approved) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)", self.current_rows[self.current_row_index][:-1] + (approved,))
+        
+        # if we're not, we're inserting
+        else:
+            pg_cursor.execute("INSERT INTO panoramas (id, panorama_id, text, ocr_yaw, ocr_pitch, ocr_width, ocr_height, lat, lng, heading, pitch, roll, approved) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)", self.current_rows[self.current_row_index][:-1] + (approved,))
         self.next_row()
         pg_conn.commit()
         conn.commit()
 
+    def last_row(self):
+        # check if we're at the beginning of our history
+        if self.visited_rows_index is not None:
+            if len(self.visited_rows) > 0:
+                self.visited_rows_index = self.visited_rows_index - 1
+                self.current_row_index = self.visited_rows[self.visited_rows_index]
+                self.load_current_row()
+    
+
     def next_row(self):
         """Move to the next row in the current time results"""
+
         # check if we've hit the limit
         pg_cursor.execute(f"SELECT COUNT(*) FROM panoramas WHERE text = {self.get_time_string()} AND approved = True")
         if pg_cursor.fetchone()[0] > self.limit:
             self.next_time()
             return
+        # check if we are in history
+        elif self.in_history():
+            self.visited_rows_index  = self.visited_rows_index + 1
+            self.current_row_index = self.visited_rows[self.visited_rows_index]
+            self.load_current_row()
+
         elif self.current_rows:
             self.current_row_index = randrange(len(self.current_rows)) -1
+            self.visited_rows.append(self.current_row_index)
+            self.visited_rows_index = self.visited_rows_index + 1
             # self.current_row_index = (self.current_row_index + 1) % len(self.current_rows)
             self.load_current_row()
         
