@@ -2,6 +2,7 @@ ocr_data.csv
 process.db
 deprecated/
 .python-version
+digits/*.csv
 
 
 .DS_Store
