@@ -213,6 +213,7 @@
         }
       }
 
+
       #display-right {
         display: flex;
         align-items: center;
@@ -387,9 +388,10 @@
         height: 100%;
         display: block;
         pointer-events: none;
-        transform: scale(1.6);
+        transform: scale(1);
         transform-origin: center center;
       }
+
 
       #streetview-overlay {
         position: absolute;
@@ -702,6 +704,32 @@
     <script src="utils.js"></script>
     <script>
       let use24h = false;
+      const kbTargets = [
+        'scale(1.5) translate(6%, 2%)',
+        'scale(1.5) translate(-6%, -2%)',
+        'scale(1.5) translate(2%, -5%)',
+        'scale(1.5) translate(-2%, 5%)',
+        'scale(1.5) translate(0%, 0%)',
+        'scale(1.5) translate(4%, 4%)',
+      ];
+      let lastKbIndex = -1;
+      let kbAnimation = null;
+
+      function restartKenBurns() {
+        const iframe = document.getElementById('streetview-iframe');
+        const current = getComputedStyle(iframe).transform;
+        if (kbAnimation) kbAnimation.cancel();
+        let idx;
+        do { idx = Math.floor(Math.random() * kbTargets.length); } while (idx === lastKbIndex);
+        lastKbIndex = idx;
+        kbAnimation = iframe.animate(
+          [
+            { transform: current },
+            { transform: kbTargets[idx] },
+          ],
+          { duration: 20000, easing: 'ease-in-out', fill: 'forwards' }
+        );
+      }
       let currentGsvProps = null;
       let currentTeleportUrl = '#';
 
@@ -878,6 +906,7 @@
           GOOGLE_MAPS_API_KEY,
         );
         document.getElementById('streetview-iframe').src = embedUrl;
+        restartKenBurns();
         currentGsvProps = gsvProps;
         currentTeleportUrl = getGoogleStreetviewUrl(gsvProps);
 
@@ -974,6 +1003,7 @@
           GOOGLE_MAPS_API_KEY,
         );
         document.getElementById('streetview-iframe').src = embedUrl;
+        restartKenBurns();
         currentGsvProps = gsvProps;
         currentTeleportUrl = getGoogleStreetviewUrl(gsvProps);
         console.log('[DEBUG] pano_id:', panoId, 'text:', row.text);
