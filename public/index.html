@@ -213,7 +213,6 @@
         }
       }
 
-
       #display-right {
         display: flex;
         align-items: center;
@@ -392,6 +391,22 @@
         transform-origin: center center;
       }
 
+      #streetview-static {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        opacity: 0;
+        transition: opacity 0.2s;
+        pointer-events: none;
+        z-index: 1;
+      }
+
+      #streetview-static.active {
+        opacity: 1;
+      }
 
       #streetview-overlay {
         position: absolute;
@@ -400,6 +415,7 @@
         width: 100%;
         height: 100%;
         pointer-events: none;
+        z-index: 2;
         background:
           radial-gradient(
             ellipse at center,
@@ -480,7 +496,9 @@
         user-select: none;
         z-index: 10;
         opacity: 0;
-        transition: opacity 0.3s, transform 0.3s;
+        transition:
+          opacity 0.3s,
+          transform 0.3s;
         box-shadow: 2px 3px 0 #333;
       }
 
@@ -625,7 +643,9 @@
   <body>
     <img id="esb" src="esb.png" alt="Empire State Building" />
     <img id="pigeon" src="pigeon.png" alt="Pigeon" />
-    <div id="window-frame-bottom"><img src="windowframebottom.png" alt="" /></div>
+    <div id="window-frame-bottom">
+      <img src="windowframebottom.png" alt="" />
+    </div>
     <div id="table-surface"></div>
     <img id="metrocard" src="MetroCard.png" alt="MetroCard" />
     <img id="catnap" src="catnap.png" alt="Catnap" />
@@ -637,6 +657,13 @@
           <div id="streetview-bezel">
             <div id="streetview">
               <iframe id="streetview-iframe" src="" frameborder="0"></iframe>
+              <video
+                id="streetview-static"
+                src="tv-static.mp4"
+                muted
+                loop
+                preload="auto"
+              ></video>
               <div id="streetview-overlay"></div>
             </div>
           </div>
@@ -720,16 +747,40 @@
         const current = getComputedStyle(iframe).transform;
         if (kbAnimation) kbAnimation.cancel();
         let idx;
-        do { idx = Math.floor(Math.random() * kbTargets.length); } while (idx === lastKbIndex);
+        do {
+          idx = Math.floor(Math.random() * kbTargets.length);
+        } while (idx === lastKbIndex);
         lastKbIndex = idx;
         kbAnimation = iframe.animate(
-          [
-            { transform: current },
-            { transform: kbTargets[idx] },
-          ],
-          { duration: 20000, easing: 'ease-in-out', fill: 'forwards' }
+          [{ transform: current }, { transform: kbTargets[idx] }],
+          { duration: 20000, easing: 'ease-in-out', fill: 'forwards' },
         );
       }
+      function transitionStreetview(embedUrl) {
+        const iframe = document.getElementById('streetview-iframe');
+        const staticVideo = document.getElementById('streetview-static');
+        staticVideo.currentTime = 0;
+        staticVideo.play();
+        staticVideo.classList.add('active');
+        iframe.src = embedUrl;
+        const loadPromise = new Promise((resolve) => {
+          iframe.addEventListener('load', resolve, { once: true });
+        });
+        const delay = 200 + Math.random() * 600;
+        const delayPromise = new Promise((resolve) =>
+          setTimeout(resolve, delay),
+        );
+        Promise.all([loadPromise, delayPromise]).then(() => {
+          staticVideo.classList.remove('active');
+          staticVideo.addEventListener(
+            'transitionend',
+            () => staticVideo.pause(),
+            { once: true },
+          );
+          restartKenBurns();
+        });
+      }
+
       let currentGsvProps = null;
       let currentTeleportUrl = '#';
 
@@ -867,8 +918,14 @@
             if (bubble) {
               bubble.classList.add('visible');
               clearTimeout(bubble._hideTimer);
-              bubble._hideTimer = setTimeout(() => bubble.classList.remove('visible'), 4000);
-              bubble.onclick = () => { clearTimeout(bubble._hideTimer); bubble.classList.remove('visible'); };
+              bubble._hideTimer = setTimeout(
+                () => bubble.classList.remove('visible'),
+                4000,
+              );
+              bubble.onclick = () => {
+                clearTimeout(bubble._hideTimer);
+                bubble.classList.remove('visible');
+              };
             }
             currentIsFallback = true;
             showRandomRow(fallbackKey, true);
@@ -905,8 +962,7 @@
           gsvProps,
           GOOGLE_MAPS_API_KEY,
         );
-        document.getElementById('streetview-iframe').src = embedUrl;
-        restartKenBurns();
+        transitionStreetview(embedUrl);
         currentGsvProps = gsvProps;
         currentTeleportUrl = getGoogleStreetviewUrl(gsvProps);
 
@@ -1002,8 +1058,7 @@
           gsvProps,
           GOOGLE_MAPS_API_KEY,
         );
-        document.getElementById('streetview-iframe').src = embedUrl;
-        restartKenBurns();
+        transitionStreetview(embedUrl);
         currentGsvProps = gsvProps;
         currentTeleportUrl = getGoogleStreetviewUrl(gsvProps);
         console.log('[DEBUG] pano_id:', panoId, 'text:', row.text);
