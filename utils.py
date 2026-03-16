@@ -13,35 +13,34 @@ def radiansToDegrees(radians):
 def correct_ocr_coordinates(
     ocr_yaw: float, ocr_pitch: float, street_view_pitch: float, street_view_roll: float
 ):
-    # The original streetview pitch has 90 set as the horizon, so we need to adjust it to 0
     street_view_pitch = 90 - street_view_pitch
 
-    # Convert degrees to radians
+    # Negate camera angles to apply the INVERSE rotation
+    # (converts from camera frame to world frame)
     ocr_yaw_rad = degreesToRadians(ocr_yaw)
     ocr_pitch_rad = degreesToRadians(ocr_pitch)
-    street_view_pitch_rad = degreesToRadians(street_view_pitch)
-    street_view_roll_rad = degreesToRadians(street_view_roll)
+    street_view_pitch_rad = degreesToRadians(-street_view_pitch)
+    street_view_roll_rad = degreesToRadians(-street_view_roll)
 
-    # Calculate corrected yaw
     x = math.cos(ocr_yaw_rad) * math.cos(ocr_pitch_rad)
     y = math.sin(ocr_yaw_rad) * math.cos(ocr_pitch_rad)
     z = math.sin(ocr_pitch_rad)
 
-    # Apply roll rotation
-    x2 = x
-    y2 = y * math.cos(street_view_roll_rad) - z * math.sin(street_view_roll_rad)
-    z2 = y * math.sin(street_view_roll_rad) + z * math.cos(street_view_roll_rad)
+    # Inverse pitch rotation first (around y-axis)
+    # Order: (R_roll * R_pitch)^-1 = R_pitch^-1 * R_roll^-1
+    x2 = x * math.cos(street_view_pitch_rad) + z * math.sin(street_view_pitch_rad)
+    y2 = y
+    z2 = -x * math.sin(street_view_pitch_rad) + z * math.cos(street_view_pitch_rad)
 
-    # Apply pitch rotation
-    x3 = x2 * math.cos(street_view_pitch_rad) + z2 * math.sin(street_view_pitch_rad)
-    y3 = y2
-    z3 = -x2 * math.sin(street_view_pitch_rad) + z2 * math.cos(street_view_pitch_rad)
+    # Then inverse roll rotation (around x-axis)
+    x3 = x2
+    y3 = y2 * math.cos(street_view_roll_rad) - z2 * math.sin(street_view_roll_rad)
+    z3 = y2 * math.sin(street_view_roll_rad) + z2 * math.cos(street_view_roll_rad)
 
-    # Calculate corrected yaw and pitch
-    correctedYaw = radiansToDegrees(math.atan2(y3, x3))
-    correctedPitch = radiansToDegrees(math.asin(z3))
+    corrected_yaw = radiansToDegrees(math.atan2(y3, x3))
+    corrected_pitch = radiansToDegrees(math.asin(z3))
 
-    return correctedYaw, correctedPitch
+    return (corrected_yaw + 360) % 360, corrected_pitch
 
 
 def fov_to_zoom_level(fov: float) -> float:

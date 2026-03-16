@@ -459,6 +459,62 @@
         filter: drop-shadow(0 8px 16px rgba(0, 0, 0, 0.6));
       }
 
+      /* --- Fallback speech bubble --- */
+      #fallback-bubble {
+        position: absolute;
+        bottom: calc(50% + 60px);
+        left: 50%;
+        transform: translateX(-50%) scale(0.8);
+        background: #fffde8;
+        color: #222;
+        font-family: 'Comic Sans MS', 'Chalkboard SE', cursive;
+        font-size: 0.85em;
+        padding: 10px 16px;
+        border-radius: 14px;
+        border: 2px solid #333;
+        white-space: nowrap;
+        pointer-events: none;
+        cursor: pointer;
+        user-select: none;
+        z-index: 10;
+        opacity: 0;
+        transition: opacity 0.3s, transform 0.3s;
+        box-shadow: 2px 3px 0 #333;
+      }
+
+      #fallback-bubble::after {
+        content: '';
+        position: absolute;
+        bottom: -12px;
+        left: 50%;
+        transform: translateX(-50%);
+        width: 0;
+        height: 0;
+        border-left: 10px solid transparent;
+        border-right: 10px solid transparent;
+        border-top: 12px solid #333;
+      }
+
+      #fallback-bubble::before {
+        content: '';
+        position: absolute;
+        bottom: -9px;
+        left: 50%;
+        transform: translateX(-50%);
+        width: 0;
+        height: 0;
+        border-left: 8px solid transparent;
+        border-right: 8px solid transparent;
+        border-top: 10px solid #fffde8;
+        z-index: 1;
+      }
+
+      #fallback-bubble.visible {
+        opacity: 1;
+        transform: translateX(-50%) scale(1);
+        pointer-events: auto;
+      }
+
       /* --- Responsive --- */
       @media (max-width: 900px) {
         :root {
@@ -510,6 +566,11 @@
           gap: 6px;
         }
 
+        #fallback-bubble {
+          font-size: 0.65em;
+          padding: 6px 10px;
+        }
+
         #alarm-switch,
         #alarm-switch-labels {
           display: none;
@@ -553,7 +614,7 @@
         }
 
         #window-frame-bottom {
-          transform: scaleY(1.3);
+          transform: scaleY(1.3) translateY(1%);
           transform-origin: bottom center;
         }
       }
@@ -633,6 +694,7 @@
         <!-- Bottom lip -->
         <div id="clock-bottom"></div>
       </div>
+      <div id="fallback-bubble">couldn't find 00:xx — here's 12 instead!</div>
     </div>
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/sql.js/1.12.0/sql-wasm.js"></script>
@@ -681,7 +743,7 @@
           const correctedRows = dbToRows(correctedDb);
           correctedDb.close();
           for (const row of correctedRows) {
-            correctedById[row.panorama_id] = row;
+            correctedById[row.id] = row;
           }
           console.log(`Loaded ${correctedRows.length} corrected rows`);
         } catch (e) {
@@ -692,7 +754,7 @@
         let total = 0;
         let correctedCount = 0;
         for (const approvedRow of approvedRows) {
-          const row = correctedById[approvedRow.panorama_id] || approvedRow;
+          const row = correctedById[approvedRow.id] || approvedRow;
           if (correctedById[approvedRow.panorama_id]) correctedCount++;
           const key = String(row.text);
           if (!dataByTime[key]) dataByTime[key] = [];
@@ -735,7 +797,11 @@
           if (m >= 60) {
             m -= 60;
             h += 1;
-            if (h > 12) h = 1;
+            if (use24h) {
+              if (h > 23) h = 0;
+            } else {
+              if (h > 12) h = 1;
+            }
           }
           const key = timeToKey(h, m);
           if (dataByTime[key]) {
@@ -759,11 +825,36 @@
         );
       }
 
-      function showRandomRow(timeKey) {
+      let currentIsFallback = false;
+      let lastDisplayedHours24 = 0;
+      let lastDisplayedMinutes = 0;
+
+      function showRandomRow(timeKey, isFallback) {
         const rows = cachedWindow[timeKey] || dataByTime[timeKey];
+        const bubble = document.getElementById('fallback-bubble');
+
         if (!rows || rows.length === 0) {
+          if (!isFallback && use24h && lastDisplayedHours24 === 0) {
+            const fallbackKey = timeToKey(12, lastDisplayedMinutes);
+            if (bubble) {
+              bubble.classList.add('visible');
+              clearTimeout(bubble._hideTimer);
+              bubble._hideTimer = setTimeout(() => bubble.classList.remove('visible'), 4000);
+              bubble.onclick = () => { clearTimeout(bubble._hideTimer); bubble.classList.remove('visible'); };
+            }
+            currentIsFallback = true;
+            showRandomRow(fallbackKey, true);
+            return;
+          }
+          if (bubble) bubble.classList.remove('visible');
+          currentIsFallback = false;
           console.log(`No approved rows for time ${timeKey}`);
           return;
+        }
+
+        if (!isFallback) {
+          if (bubble) bubble.classList.remove('visible');
+          currentIsFallback = false;
         }
 
         if (!seenIndices[timeKey]) seenIndices[timeKey] = new Set();
@@ -796,6 +887,8 @@
       }
 
       function updateDisplay(hours12, hours24, minutes, ampm) {
+        lastDisplayedHours24 = hours24;
+        lastDisplayedMinutes = minutes;
         const displayHours = use24h ? hours24 : hours12;
         document.getElementById('time-hours').innerHTML = use24h
           ? String(displayHours).padStart(2, '0')
@@ -815,16 +908,26 @@
           }
         }
 
-        const timeKey = timeToKey(hours12, minutes);
+        const lookupHours = use24h ? hours24 : hours12;
+        const timeKey = timeToKey(lookupHours, minutes);
         if (timeKey !== currentTimeKey) {
           currentTimeKey = timeKey;
-          cacheNearbyMinutes(hours12, minutes);
+          if (use24h && hours24 === 0) {
+            cacheNearbyMinutes(12, minutes);
+          } else {
+            cacheNearbyMinutes(lookupHours, minutes);
+          }
           showRandomRow(timeKey);
         }
       }
 
       function shuffle() {
-        showRandomRow(currentTimeKey);
+        if (currentIsFallback) {
+          const fallbackKey = timeToKey(12, lastDisplayedMinutes);
+          showRandomRow(fallbackKey, true);
+        } else {
+          showRandomRow(currentTimeKey);
+        }
       }
 
       let nextInterval = 0;
@@ -853,6 +956,9 @@
       );
       const debugPanoId = new URLSearchParams(window.location.search).get(
         'panoId',
+      );
+      const debugClockTime = new URLSearchParams(window.location.search).get(
+        'clockTime',
       );
 
       function showPanoById(panoId) {
@@ -893,6 +999,10 @@
           const pmIndicator = document.getElementById('indicator-pm');
           if (pmIndicator) pmIndicator.textContent = 'PANO';
           showPanoById(debugPanoId);
+        } else if (debugClockTime !== null) {
+          const [h, m] = debugClockTime.split(':').map(Number);
+          use24h = true;
+          updateDisplay(to12Hour(h), h, m, h >= 12 ? 'PM' : 'AM');
         } else if (debugClockText !== null) {
           currentTimeKey = debugClockText;
           document.getElementById('time-hours').innerHTML = debugClockText;
@@ -918,6 +1028,7 @@
 
       document.getElementById('time-toggle').addEventListener('click', () => {
         use24h = !use24h;
+        currentTimeKey = '';
         const { hours12, hours24, minutes, ampm } = getNYCTime();
         updateDisplay(hours12, hours24, minutes, ampm);
       });

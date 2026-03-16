@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>classify</title>
+    <style>
+      body {
+        margin: 0;
+        overflow: hidden;
+        height: 100vh;
+        width: 100vw;
+      }
+      #streetview-iframe {
+        width: 100%;
+        height: 100%;
+        border: none;
+      }
+    </style>
+    <script src="public/env.js"></script>
+    <script src="public/utils.js"></script>
+    <script>
+      function onPythonVariableSet() {
+        let ocrProps = window.rowData;
+        let gsvProps = getGoogleStreetviewProps(
+          ocrProps.panoramaId,
+          ocrProps.lat,
+          ocrProps.lng,
+          ocrProps.ocrYaw,
+          ocrProps.ocrPitch,
+          ocrProps.heading,
+          ocrProps.pitch,
+          ocrProps.roll,
+          ocrProps.ocrWidth,
+          ocrProps.ocrHeight,
+        );
+        document.getElementById('streetview-iframe').src =
+          getGoogleStreetviewEmbedUrl(gsvProps, GOOGLE_MAPS_API_KEY);
+      }
+    </script>
+  </head>
+  <body>
+    <iframe id="streetview-iframe" src=""></iframe>
+  </body>
+</html>

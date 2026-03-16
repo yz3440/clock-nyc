@@ -1,0 +1,19 @@
+[project]
+name = "clock-nyc-2"
+version = "0.1.0"
+description = "Add your description here"
+requires-python = ">=3.12"
+dependencies = [
+    "aiohttp>=3.13.3",
+    "openai>=2.26.0",
+    "pandas>=3.0.1",
+    "panoocr[macocr]>=0.4.1",
+    "pillow>=12.1.1",
+    "polars>=1.38.1",
+    "psycopg2-binary>=2.9.11",
+    "pyqt5>=5.15.11",
+    "pyqtwebengine>=5.15.7",
+    "python-dotenv>=1.2.2",
+    "streetlevel>=0.12.5",
+    "tqdm>=4.67.3",
+]
