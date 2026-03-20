@@ -273,7 +273,7 @@
 
       #top-buttons {
         display: flex;
-        gap: 14px;
+        gap: 24px;
         align-items: center;
       }
 
@@ -310,7 +310,7 @@
       }
 
       .top-btn-label {
-        font-size: 0.5em;
+        font-size: 0.8em;
         font-weight: 600;
         color: rgba(200, 170, 140, 0.7);
         letter-spacing: 0.08em;
@@ -579,11 +579,11 @@
         }
 
         .top-btn-label {
-          font-size: 0.38em;
+          font-size: 0.75em;
         }
 
         #top-buttons {
-          gap: 6px;
+          gap: 26px;
         }
 
         #fallback-bubble {
@@ -621,6 +621,7 @@
         }
 
         #pizza {
+          display: none;
           left: -30%;
           bottom: -8%;
           width: 350px;
@@ -629,13 +630,31 @@
 
         #metrocard {
           right: 5%;
-          bottom: 4%;
+          bottom: 0%;
           width: 160px;
         }
 
         #window-frame-bottom {
           transform: scaleY(1.3) translateY(1%);
           transform-origin: bottom center;
+        }
+
+        #pigeon {
+          position: fixed;
+          left: 0%;
+          bottom: 65vh;
+          width: 180px;
+          pointer-events: none;
+          z-index: 0;
+        }
+        #esb {
+          position: fixed;
+          right: -5%;
+          top: 3%;
+          /* bottom: 55vh; */
+          width: 250px;
+          pointer-events: none;
+          z-index: -1;
         }
       }
     </style>
