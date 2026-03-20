@@ -1,0 +1,1112 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>NYC Street Clock</title>
+    <meta name="description" content="read the time from nyc streetview" />
+    <style>
+      @font-face {
+        font-family: 'LED Dot-Matrix';
+        src: url('fonts/LED Dot-Matrix.ttf');
+      }
+      @font-face {
+        font-family: 'Dancing Script';
+        src: url('fonts/DancingScript-VariableFont_wght.ttf');
+      }
+
+      :root {
+        --text-color: #ff3333;
+        --glow-color: #ff2020c0;
+        --body-color: #3a2215;
+        --body-highlight: #4d2e1a;
+        --body-shadow: #1a0e08;
+        --bezel-bg: #0a0a0a;
+
+        /* Clock dimensions */
+        --clock-width: 820px;
+        --clock-front-height: 120px;
+        --clock-top-depth: 780px;
+      }
+
+      * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
+
+      body {
+        font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+        background: url('cloud.webp') center top / cover no-repeat #000;
+        color: #fff;
+        overflow: hidden;
+        height: 100vh;
+        width: 100vw;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding-top: 60vh;
+      }
+
+      /* --- Wooden Table Surface --- */
+      #table-surface {
+        position: fixed;
+        bottom: 0;
+        left: -20%;
+        width: 140%;
+        height: 70vh;
+        background: url('wood.webp') center / cover no-repeat;
+        transform-origin: center top;
+        transform: perspective(900px) rotateX(58deg);
+        pointer-events: none;
+        z-index: 2;
+      }
+
+      /* --- Window Frame Bottom --- */
+      #window-frame-bottom {
+        position: fixed;
+        left: 0;
+        width: 100%;
+        bottom: 70vh;
+        /* transform: translateY(100%); */
+        pointer-events: none;
+        z-index: 1;
+      }
+
+      #window-frame-bottom img {
+        width: 100%;
+        display: block;
+      }
+
+      /* --- Pigeon on windowsill --- */
+      #pigeon {
+        position: fixed;
+        left: 5%;
+        bottom: 70vh;
+        width: 180px;
+        pointer-events: none;
+        z-index: 0;
+      }
+
+      /* --- ESB behind window --- */
+      #esb {
+        position: fixed;
+        right: 5%;
+        bottom: 65vh;
+        width: 250px;
+        pointer-events: none;
+        z-index: -1;
+      }
+
+      /* --- 3D Scene --- */
+      #clock-scene {
+        perspective: 900px;
+        width: var(--clock-width);
+        height: 80vh;
+        max-height: 700px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        position: relative;
+        z-index: 3;
+      }
+
+      /* --- Clock Body (3D container) --- */
+      #clock-body {
+        width: var(--clock-width);
+        transform-style: preserve-3d;
+        transform: rotateX(-58deg);
+        position: relative;
+        height: var(--clock-front-height);
+      }
+
+      /* === FRONT FACE (narrow strip: time digits) === */
+      #clock-front {
+        position: absolute;
+        width: 100%;
+        height: var(--clock-front-height);
+        bottom: 0;
+        background: var(--body-color);
+        border-radius: 0 0 5px 5px;
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+        backface-visibility: hidden;
+        border-left: 1px solid var(--body-highlight);
+        border-right: 1px solid var(--body-shadow);
+        border-bottom: 3px solid var(--body-shadow);
+        box-shadow:
+          0 20px 50px rgba(0, 0, 0, 0.7),
+          0 10px 25px rgba(0, 0, 0, 0.5);
+      }
+
+      /* Display bezel inside the front face */
+      #display-bezel {
+        flex: 1;
+        margin: 6px 10px 8px 10px;
+        background: var(--bezel-bg);
+        border-radius: 3px;
+        display: flex;
+        align-items: center;
+        overflow: hidden;
+        box-shadow:
+          inset 0 3px 10px rgba(0, 0, 0, 0.9),
+          inset 0 2px 4px rgba(0, 0, 0, 0.7),
+          inset 2px 0 6px rgba(0, 0, 0, 0.4),
+          inset -2px 0 6px rgba(0, 0, 0, 0.4);
+      }
+
+      /* Display row: indicators | time | brand */
+      #display-row {
+        display: grid;
+        grid-template-columns: 1fr auto 1fr;
+        align-items: center;
+        width: 100%;
+        padding: 6px 16px;
+      }
+
+      #display-indicators {
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+        justify-self: start;
+      }
+
+      .indicator {
+        font-size: 0.55em;
+        font-weight: 600;
+        color: var(--text-color);
+        text-shadow: 0 0 4px var(--glow-color);
+        opacity: 0.8;
+        user-select: none;
+      }
+
+      .indicator.dim {
+        opacity: 0.15;
+      }
+
+      #time {
+        display: flex;
+        align-items: center;
+        gap: 2px;
+        color: var(--text-color);
+        font-size: 2.2em;
+        font-weight: bold;
+        font-family:
+          'LED Dot-Matrix', 'Helvetica Neue', Helvetica, Arial, sans-serif;
+        text-shadow:
+          0 0 6px var(--glow-color),
+          0 0 12px var(--glow-color),
+          0 0 24px var(--glow-color);
+        user-select: none;
+        justify-self: center;
+      }
+
+      #time-colon {
+        animation: blink 1.2s step-start infinite;
+        margin: 0 2px;
+      }
+
+      @keyframes blink {
+        50% {
+          opacity: 0;
+        }
+      }
+
+      #display-right {
+        display: flex;
+        align-items: center;
+        justify-self: end;
+      }
+
+      #brand-label {
+        font-family: 'Dancing Script', cursive;
+        font-size: 1.1em;
+        letter-spacing: -0.01em;
+        color: rgba(200, 170, 140, 0.55);
+        text-shadow:
+          0 -1px 1px rgba(0, 0, 0, 0.9),
+          0 -2px 3px rgba(0, 0, 0, 0.3),
+          0 1px 0 rgba(255, 255, 255, 0.06);
+        user-select: none;
+      }
+
+      /* === TOP FACE (streetview + buttons) === */
+      #clock-top {
+        position: absolute;
+        width: 100%;
+        height: var(--clock-top-depth);
+        bottom: 100%;
+        transform-origin: center bottom;
+        transform: rotateX(90deg);
+        backface-visibility: hidden;
+
+        background: var(--body-color);
+        border-radius: 5px 5px 0 0;
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+        border-top: 2px solid #5a3d28;
+        border-left: 1px solid var(--body-highlight);
+        border-right: 1px solid var(--body-shadow);
+      }
+
+      /* Ridged button strip at the back edge of the top face */
+      #top-button-strip {
+        height: 50px;
+        min-height: 50px;
+        background:
+          repeating-linear-gradient(
+            to bottom,
+            rgba(255, 255, 255, 0.05) 0px,
+            rgba(255, 255, 255, 0.05) 1px,
+            transparent 1px,
+            transparent 5px
+          ),
+          linear-gradient(to bottom, #4a3020, #3a2215);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 6px 24px;
+        box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08);
+      }
+
+      #top-buttons {
+        display: flex;
+        gap: 14px;
+        align-items: center;
+      }
+
+      .top-btn {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 4px;
+        background: none;
+        border: none;
+        cursor: pointer;
+        padding: 0;
+      }
+
+      .top-btn-cap {
+        width: 56px;
+        height: 14px;
+        background: linear-gradient(to bottom, #2a1a10, #1a0e06);
+        border-radius: 3px;
+        box-shadow:
+          inset 0 -1px 2px rgba(255, 255, 255, 0.05),
+          0 2px 4px rgba(0, 0, 0, 0.6),
+          0 1px 0 rgba(60, 40, 20, 0.3);
+        transition:
+          transform 0.05s,
+          box-shadow 0.05s;
+      }
+
+      .top-btn:active .top-btn-cap {
+        transform: translateY(1px);
+        box-shadow:
+          inset 0 1px 3px rgba(0, 0, 0, 0.6),
+          0 0 0 rgba(0, 0, 0, 0);
+      }
+
+      .top-btn-label {
+        font-size: 0.5em;
+        font-weight: 600;
+        color: rgba(200, 170, 140, 0.7);
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        user-select: none;
+      }
+
+      #alarm-switch {
+        display: none;
+        flex-direction: column;
+        align-items: center;
+        gap: 3px;
+        margin-left: 10px;
+      }
+
+      #alarm-switch-track {
+        width: 16px;
+        height: 20px;
+        background: linear-gradient(to bottom, #1a0e06, #2a1a10);
+        border-radius: 3px;
+        position: relative;
+        box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.5);
+      }
+
+      #alarm-switch-thumb {
+        width: 12px;
+        height: 10px;
+        background: linear-gradient(to bottom, #3a2a18, #2a1a10);
+        border-radius: 2px;
+        position: absolute;
+        left: 2px;
+        top: 2px;
+        box-shadow: 0 1px 2px rgba(0, 0, 0, 0.4);
+      }
+
+      #alarm-switch-labels {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+      }
+
+      #alarm-switch-labels span {
+        font-size: 0.42em;
+        color: rgba(200, 170, 140, 0.6);
+        letter-spacing: 0.05em;
+        line-height: 1.2;
+      }
+
+      /* Streetview area on the top face */
+      #streetview-bezel {
+        flex: 1;
+        margin: 10px 10px 0 10px;
+        background: var(--bezel-bg);
+        border-radius: 4px;
+        display: flex;
+        overflow: hidden;
+        box-shadow:
+          inset 0 4px 15px rgba(0, 0, 0, 0.9),
+          inset 0 2px 6px rgba(0, 0, 0, 0.7),
+          inset 2px 0 8px rgba(0, 0, 0, 0.4),
+          inset -2px 0 8px rgba(0, 0, 0, 0.4);
+      }
+
+      #streetview {
+        flex: 1;
+        position: relative;
+        overflow: hidden;
+        user-select: none;
+        -webkit-user-select: none;
+      }
+
+      #streetview-iframe {
+        width: 100%;
+        height: 100%;
+        display: block;
+        pointer-events: none;
+        transform: scale(1);
+        transform-origin: center center;
+      }
+
+      #streetview-static {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        opacity: 0;
+        transition: opacity 0.2s;
+        pointer-events: none;
+        z-index: 1;
+      }
+
+      #streetview-static.active {
+        opacity: 1;
+      }
+
+      #streetview-overlay {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        pointer-events: none;
+        z-index: 2;
+        background:
+          radial-gradient(
+            ellipse at center,
+            transparent 30%,
+            rgba(0, 0, 0, 0.8) 80%
+          ),
+          linear-gradient(to bottom, rgba(0, 0, 0, 0.7) 0%, transparent 8%),
+          linear-gradient(to right, rgba(0, 0, 0, 0.6) 0%, transparent 6%),
+          linear-gradient(to top, rgba(0, 0, 0, 0.4) 0%, transparent 5%),
+          linear-gradient(to left, rgba(0, 0, 0, 0.4) 0%, transparent 4%);
+      }
+
+      /* === BOTTOM LIP === */
+      #clock-bottom {
+        position: absolute;
+        width: 100%;
+        height: 16px;
+        bottom: 0;
+        transform-origin: center bottom;
+        transform: rotateX(-90deg);
+        background: linear-gradient(to bottom, #1a0e08, #0d0705);
+        backface-visibility: hidden;
+      }
+
+      /* --- MetroCard on table --- */
+      #metrocard {
+        position: fixed;
+        right: 3%;
+        bottom: 18%;
+        width: 260px;
+        transform: perspective(900px) rotateX(58deg) rotateZ(-8deg);
+        transform-origin: center bottom;
+        pointer-events: none;
+        z-index: 2;
+        filter: drop-shadow(0 8px 16px rgba(0, 0, 0, 0.6));
+      }
+
+      /* --- Catnap on table (right, higher up) --- */
+      #catnap {
+        position: fixed;
+        right: -30%;
+        bottom: 32%;
+        width: 720px;
+        transform: rotateZ(5deg);
+        pointer-events: none;
+        z-index: 2;
+        filter: drop-shadow(0 8px 16px rgba(0, 0, 0, 0.6));
+      }
+
+      /* --- Pizza on table (left) --- */
+      #pizza {
+        position: fixed;
+        left: -10%;
+        bottom: 16%;
+        width: 380px;
+        transform: rotateZ(6deg) scaleX(-1);
+        pointer-events: none;
+        z-index: 2;
+        filter: drop-shadow(0 8px 16px rgba(0, 0, 0, 0.6));
+      }
+
+      /* --- Fallback speech bubble --- */
+      #fallback-bubble {
+        position: absolute;
+        bottom: calc(50% + 60px);
+        left: 50%;
+        transform: translateX(-50%) scale(0.8);
+        background: #fffde8;
+        color: #222;
+        font-family: 'Comic Sans MS', 'Chalkboard SE', cursive;
+        font-size: 0.85em;
+        padding: 10px 16px;
+        border-radius: 14px;
+        border: 2px solid #333;
+        white-space: nowrap;
+        pointer-events: none;
+        cursor: pointer;
+        user-select: none;
+        z-index: 10;
+        opacity: 0;
+        transition:
+          opacity 0.3s,
+          transform 0.3s;
+        box-shadow: 2px 3px 0 #333;
+      }
+
+      #fallback-bubble::after {
+        content: '';
+        position: absolute;
+        bottom: -12px;
+        left: 50%;
+        transform: translateX(-50%);
+        width: 0;
+        height: 0;
+        border-left: 10px solid transparent;
+        border-right: 10px solid transparent;
+        border-top: 12px solid #333;
+      }
+
+      #fallback-bubble::before {
+        content: '';
+        position: absolute;
+        bottom: -9px;
+        left: 50%;
+        transform: translateX(-50%);
+        width: 0;
+        height: 0;
+        border-left: 8px solid transparent;
+        border-right: 8px solid transparent;
+        border-top: 10px solid #fffde8;
+        z-index: 1;
+      }
+
+      #fallback-bubble.visible {
+        opacity: 1;
+        transform: translateX(-50%) scale(1);
+        pointer-events: auto;
+      }
+
+      /* --- Responsive --- */
+      @media (max-width: 900px) {
+        :root {
+          --clock-width: 95vw;
+          --clock-front-height: 100px;
+          --clock-top-depth: 650px;
+        }
+
+        #clock-scene {
+          perspective: 750px;
+        }
+
+        #clock-body {
+          transform: rotateX(-58deg);
+        }
+      }
+
+      @media (max-width: 600px) {
+        :root {
+          --clock-width: 98vw;
+          --clock-front-height: 80px;
+          --clock-top-depth: 650px;
+        }
+
+        #clock-scene {
+          perspective: 600px;
+        }
+
+        #clock-body {
+          transform: rotateX(-65deg);
+        }
+
+        #top-button-strip {
+          height: 38px;
+          min-height: 38px;
+          padding: 4px 10px;
+        }
+
+        .top-btn-cap {
+          width: 36px;
+          height: 10px;
+        }
+
+        .top-btn-label {
+          font-size: 0.38em;
+        }
+
+        #top-buttons {
+          gap: 6px;
+        }
+
+        #fallback-bubble {
+          font-size: 0.65em;
+          padding: 6px 10px;
+        }
+
+        #alarm-switch,
+        #alarm-switch-labels {
+          display: none;
+        }
+
+        #display-bezel {
+          margin: 4px 6px 6px 6px;
+        }
+
+        #display-row {
+          padding: 4px 10px;
+        }
+
+        #time {
+          font-size: 1.5em;
+        }
+
+        #brand-label {
+          font-size: 0.75em;
+        }
+
+        #streetview-bezel {
+          margin: 0 6px 6px 6px;
+        }
+
+        #catnap {
+          display: none;
+        }
+
+        #pizza {
+          left: -30%;
+          bottom: -8%;
+          width: 350px;
+          transform: rotateZ(-3deg) scaleX(-1);
+        }
+
+        #metrocard {
+          right: 5%;
+          bottom: 4%;
+          width: 160px;
+        }
+
+        #window-frame-bottom {
+          transform: scaleY(1.3) translateY(1%);
+          transform-origin: bottom center;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <img id="esb" src="esb.webp" alt="Empire State Building" />
+    <img id="pigeon" src="pigeon.webp" alt="Pigeon" />
+    <div id="window-frame-bottom">
+      <img src="windowframebottom.webp" alt="" />
+    </div>
+    <div id="table-surface"></div>
+    <img id="metrocard" src="MetroCard.webp" alt="MetroCard" />
+    <img id="catnap" src="catnap.webp" alt="Catnap" />
+    <img id="pizza" src="pizza.webp" alt="Pizza" />
+    <div id="clock-scene">
+      <div id="clock-body">
+        <!-- Top face: streetview screen + buttons -->
+        <div id="clock-top">
+          <div id="streetview-bezel">
+            <div id="streetview">
+              <iframe id="streetview-iframe" src="" frameborder="0"></iframe>
+              <video
+                id="streetview-static"
+                src="tv-static.mp4"
+                muted
+                loop
+                preload="auto"
+              ></video>
+              <div id="streetview-overlay"></div>
+            </div>
+          </div>
+
+          <div id="top-button-strip">
+            <div id="top-buttons">
+              <button class="top-btn" id="time-toggle" title="Toggle 12/24h">
+                <div class="top-btn-cap"></div>
+                <span class="top-btn-label">12/24H</span>
+              </button>
+              <button class="top-btn" id="shuffle-button" title="Shuffle">
+                <div class="top-btn-cap"></div>
+                <span class="top-btn-label">SHUFFLE</span>
+              </button>
+
+              <div id="alarm-switch">
+                <div id="alarm-switch-track">
+                  <div id="alarm-switch-thumb"></div>
+                </div>
+                <div id="alarm-switch-labels">
+                  <span>ALARM</span>
+                  <span>ON&bull;OFF</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Front face: time display strip -->
+        <div id="clock-front">
+          <div id="display-bezel">
+            <div id="display-row">
+              <div id="display-indicators">
+                <span class="indicator" id="indicator-pm">PM</span>
+                <span class="indicator dim" id="indicator-alarm">ALARM</span>
+              </div>
+              <div id="time">
+                <span id="time-hours"></span>
+                <span id="time-colon">:</span>
+                <span id="time-minutes"></span>
+              </div>
+              <div id="display-right">
+                <span id="brand-label">NYC STREET CLOCK</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Bottom lip -->
+        <div id="clock-bottom"></div>
+      </div>
+      <div id="fallback-bubble">couldn't find 00:xx — here's 12 instead!</div>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/sql.js/1.12.0/sql-wasm.js"></script>
+    <script src="env.js"></script>
+    <script src="utils.js"></script>
+    <script>
+      let use24h = false;
+      const kbTargets = [
+        'scale(2) translate(6%, 2%)',
+        'scale(2) translate(-6%, -2%)',
+        'scale(2) translate(2%, -5%)',
+        'scale(2) translate(-2%, 5%)',
+        'scale(2) translate(0%, 0%)',
+        'scale(2) translate(4%, 4%)',
+      ];
+      let lastKbIndex = -1;
+      let kbAnimation = null;
+
+      function restartKenBurns() {
+        const iframe = document.getElementById('streetview-iframe');
+        const current = getComputedStyle(iframe).transform;
+        if (kbAnimation) kbAnimation.cancel();
+        let idx;
+        do {
+          idx = Math.floor(Math.random() * kbTargets.length);
+        } while (idx === lastKbIndex);
+        lastKbIndex = idx;
+        kbAnimation = iframe.animate(
+          [{ transform: current }, { transform: kbTargets[idx] }],
+          { duration: 20000, easing: 'ease-in-out', fill: 'forwards' },
+        );
+      }
+      function transitionStreetview(embedUrl) {
+        const iframe = document.getElementById('streetview-iframe');
+        const staticVideo = document.getElementById('streetview-static');
+        staticVideo.currentTime = 0;
+        staticVideo.play();
+        staticVideo.classList.add('active');
+        iframe.src = embedUrl;
+        const loadPromise = new Promise((resolve) => {
+          iframe.addEventListener('load', resolve, { once: true });
+        });
+        const delay = 200 + Math.random() * 600;
+        const delayPromise = new Promise((resolve) =>
+          setTimeout(resolve, delay),
+        );
+        Promise.all([loadPromise, delayPromise]).then(() => {
+          staticVideo.classList.remove('active');
+          staticVideo.addEventListener(
+            'transitionend',
+            () => staticVideo.pause(),
+            { once: true },
+          );
+          restartKenBurns();
+        });
+      }
+
+      let currentGsvProps = null;
+
+      let dataByTime = {};
+      let cachedWindow = {};
+      let currentTimeKey = '';
+      let seenIndices = {};
+
+      async function loadApprovedData() {
+        const SQL = await initSqlJs({
+          locateFile: (file) =>
+            `https://cdnjs.cloudflare.com/ajax/libs/sql.js/1.12.0/${file}`,
+        });
+
+        function dbToRows(sqlDb) {
+          const result = sqlDb.exec('SELECT * FROM panoramas');
+          if (!result.length) return [];
+          const cols = result[0].columns;
+          return result[0].values.map((values) => {
+            const row = {};
+            cols.forEach((c, i) => (row[c] = values[i]));
+            return row;
+          });
+        }
+
+        const approvedRes = await fetch('street_time_approved.db');
+        const approvedBuf = await approvedRes.arrayBuffer();
+        const approvedDb = new SQL.Database(new Uint8Array(approvedBuf));
+        const approvedRows = dbToRows(approvedDb);
+        approvedDb.close();
+        console.log(`Loaded ${approvedRows.length} approved rows`);
+
+        let correctedById = {};
+        try {
+          const correctedRes = await fetch('street_time_corrected.db');
+          if (!correctedRes.ok) throw new Error(correctedRes.statusText);
+          const correctedBuf = await correctedRes.arrayBuffer();
+          const correctedDb = new SQL.Database(new Uint8Array(correctedBuf));
+          const correctedRows = dbToRows(correctedDb);
+          correctedDb.close();
+          for (const row of correctedRows) {
+            correctedById[row.id] = row;
+          }
+          console.log(`Loaded ${correctedRows.length} corrected rows`);
+        } catch (e) {
+          console.warn('Corrected DB not available:', e.message);
+        }
+
+        dataByTime = {};
+        let total = 0;
+        let correctedCount = 0;
+        for (const approvedRow of approvedRows) {
+          const row = correctedById[approvedRow.id] || approvedRow;
+          if (correctedById[approvedRow.panorama_id]) correctedCount++;
+          const key = String(row.text);
+          if (!dataByTime[key]) dataByTime[key] = [];
+          dataByTime[key].push(row);
+          total++;
+        }
+        console.log(
+          `Merged ${total} rows (${correctedCount} corrected) across ${Object.keys(dataByTime).length} times`,
+        );
+      }
+
+      function to12Hour(h) {
+        h = h % 12;
+        return h === 0 ? 12 : h;
+      }
+
+      function getNYCTime() {
+        const now = new Date().toLocaleString('en-US', {
+          timeZone: 'America/New_York',
+        });
+        const date = new Date(now);
+        const h24 = date.getHours();
+        return {
+          hours12: to12Hour(h24),
+          hours24: h24,
+          minutes: date.getMinutes(),
+          ampm: h24 >= 12 ? 'PM' : 'AM',
+        };
+      }
+
+      function timeToKey(hours, minutes) {
+        return String(hours * 100 + minutes);
+      }
+
+      function cacheNearbyMinutes(hours, minutes) {
+        cachedWindow = {};
+        for (let offset = 0; offset < 10; offset++) {
+          let m = minutes + offset;
+          let h = hours;
+          if (m >= 60) {
+            m -= 60;
+            h += 1;
+            if (use24h) {
+              if (h > 23) h = 0;
+            } else {
+              if (h > 12) h = 1;
+            }
+          }
+          const key = timeToKey(h, m);
+          if (dataByTime[key]) {
+            cachedWindow[key] = dataByTime[key];
+          }
+        }
+      }
+
+      function rowToGsvProps(row) {
+        return getGoogleStreetviewProps(
+          row.panorama_id,
+          row.lat,
+          row.lon,
+          row.ocr_yaw,
+          row.ocr_pitch,
+          row.heading,
+          row.pitch,
+          row.roll,
+          row.ocr_width,
+          row.ocr_height,
+        );
+      }
+
+      let currentIsFallback = false;
+      let lastDisplayedHours24 = 0;
+      let lastDisplayedMinutes = 0;
+
+      function showRandomRow(timeKey, isFallback) {
+        const rows = cachedWindow[timeKey] || dataByTime[timeKey];
+        const bubble = document.getElementById('fallback-bubble');
+
+        if (!rows || rows.length === 0) {
+          if (!isFallback && use24h && lastDisplayedHours24 === 0) {
+            const fallbackKey = timeToKey(12, lastDisplayedMinutes);
+            if (bubble) {
+              bubble.classList.add('visible');
+              clearTimeout(bubble._hideTimer);
+              bubble._hideTimer = setTimeout(
+                () => bubble.classList.remove('visible'),
+                4000,
+              );
+              bubble.onclick = () => {
+                clearTimeout(bubble._hideTimer);
+                bubble.classList.remove('visible');
+              };
+            }
+            currentIsFallback = true;
+            showRandomRow(fallbackKey, true);
+            return;
+          }
+          if (bubble) bubble.classList.remove('visible');
+          currentIsFallback = false;
+          console.log(`No approved rows for time ${timeKey}`);
+          return;
+        }
+
+        if (!isFallback) {
+          if (bubble) bubble.classList.remove('visible');
+          currentIsFallback = false;
+        }
+
+        if (!seenIndices[timeKey]) seenIndices[timeKey] = new Set();
+
+        let unseenIdx = [];
+        for (let i = 0; i < rows.length; i++) {
+          if (!seenIndices[timeKey].has(i)) unseenIdx.push(i);
+        }
+
+        if (unseenIdx.length === 0) {
+          seenIndices[timeKey].clear();
+          unseenIdx = rows.map((_, i) => i);
+        }
+
+        const idx = unseenIdx[Math.floor(Math.random() * unseenIdx.length)];
+        seenIndices[timeKey].add(idx);
+
+        const gsvProps = rowToGsvProps(rows[idx]);
+        const embedUrl = getGoogleStreetviewEmbedUrl(
+          gsvProps,
+          GOOGLE_MAPS_API_KEY,
+        );
+        transitionStreetview(embedUrl);
+        currentGsvProps = gsvProps;
+
+        if (debugClockText !== null) {
+          console.log(`[DEBUG] pano_id: ${rows[idx].panorama_id}`);
+        }
+      }
+
+      function updateDisplay(hours12, hours24, minutes, ampm) {
+        lastDisplayedHours24 = hours24;
+        lastDisplayedMinutes = minutes;
+        const displayHours = use24h ? hours24 : hours12;
+        document.getElementById('time-hours').innerHTML = use24h
+          ? String(displayHours).padStart(2, '0')
+          : String(displayHours);
+        document.getElementById('time-minutes').innerHTML = String(
+          minutes,
+        ).padStart(2, '0');
+
+        const pmIndicator = document.getElementById('indicator-pm');
+        if (pmIndicator) {
+          if (use24h) {
+            pmIndicator.textContent = 'ET';
+            pmIndicator.classList.remove('dim');
+          } else {
+            pmIndicator.textContent = ampm;
+            pmIndicator.classList.remove('dim');
+          }
+        }
+
+        const lookupHours = use24h ? hours24 : hours12;
+        const timeKey = timeToKey(lookupHours, minutes);
+        if (timeKey !== currentTimeKey) {
+          currentTimeKey = timeKey;
+          if (use24h && hours24 === 0) {
+            cacheNearbyMinutes(12, minutes);
+          } else {
+            cacheNearbyMinutes(lookupHours, minutes);
+          }
+          showRandomRow(timeKey);
+        }
+      }
+
+      function shuffle() {
+        if (currentIsFallback) {
+          const fallbackKey = timeToKey(12, lastDisplayedMinutes);
+          showRandomRow(fallbackKey, true);
+        } else {
+          showRandomRow(currentTimeKey);
+        }
+      }
+
+      let nextInterval = 0;
+
+      async function updateAndSchedule() {
+        clearTimeout(nextInterval);
+        const { hours12, hours24, minutes, ampm } = getNYCTime();
+        updateDisplay(hours12, hours24, minutes, ampm);
+
+        const now = new Date();
+        const nextMinute = new Date(
+          now.getFullYear(),
+          now.getMonth(),
+          now.getDate(),
+          now.getHours(),
+          now.getMinutes() + 1,
+          0,
+          0,
+        );
+        const timeUntilNextMinute = nextMinute - now;
+        nextInterval = setTimeout(updateAndSchedule, timeUntilNextMinute);
+      }
+
+      const debugClockText = new URLSearchParams(window.location.search).get(
+        'clockText',
+      );
+      const debugPanoId = new URLSearchParams(window.location.search).get(
+        'panoId',
+      );
+      const debugClockTime = new URLSearchParams(window.location.search).get(
+        'clockTime',
+      );
+
+      function showPanoById(panoId) {
+        const allRows = Object.values(dataByTime).flat();
+        const row = allRows.find((r) => r.panorama_id === panoId);
+        if (!row) {
+          console.error(`[DEBUG] pano_id not found: ${panoId}`);
+          return;
+        }
+        const gsvProps = rowToGsvProps(row);
+        const embedUrl = getGoogleStreetviewEmbedUrl(
+          gsvProps,
+          GOOGLE_MAPS_API_KEY,
+        );
+        transitionStreetview(embedUrl);
+        currentGsvProps = gsvProps;
+        console.log('[DEBUG] pano_id:', panoId, 'text:', row.text);
+        console.log('[DEBUG] raw:', {
+          ocr_yaw: row.ocr_yaw,
+          ocr_pitch: row.ocr_pitch,
+          heading: row.heading,
+          pitch: row.pitch,
+          roll: row.roll,
+        });
+        console.log('[DEBUG] gsvProps:', gsvProps);
+        console.log('[DEBUG] embedUrl:', embedUrl);
+      }
+
+      loadApprovedData().then(() => {
+        if (debugPanoId !== null) {
+          document.getElementById('time-hours').innerHTML = debugPanoId.slice(
+            0,
+            8,
+          );
+          document.getElementById('time-minutes').innerHTML = '';
+          document.getElementById('time-colon').innerHTML = '';
+          const pmIndicator = document.getElementById('indicator-pm');
+          if (pmIndicator) pmIndicator.textContent = 'PANO';
+          showPanoById(debugPanoId);
+        } else if (debugClockTime !== null) {
+          const [h, m] = debugClockTime.split(':').map(Number);
+          use24h = true;
+          updateDisplay(to12Hour(h), h, m, h >= 12 ? 'PM' : 'AM');
+        } else if (debugClockText !== null) {
+          currentTimeKey = debugClockText;
+          document.getElementById('time-hours').innerHTML = debugClockText;
+          document.getElementById('time-minutes').innerHTML = '';
+          document.getElementById('time-colon').innerHTML = '';
+          const pmIndicator = document.getElementById('indicator-pm');
+          if (pmIndicator) pmIndicator.textContent = 'DEBUG';
+          showRandomRow(debugClockText);
+        } else {
+          updateAndSchedule();
+        }
+      });
+
+      if (/Mobi|Android/i.test(navigator.userAgent)) {
+        window.addEventListener('blur', () => {
+          window.addEventListener('focus', updateAndSchedule, { once: true });
+        });
+      }
+
+      document
+        .getElementById('shuffle-button')
+        .addEventListener('click', () => shuffle());
+
+      document.getElementById('time-toggle').addEventListener('click', () => {
+        use24h = !use24h;
+        currentTimeKey = '';
+        const { hours12, hours24, minutes, ampm } = getNYCTime();
+        updateDisplay(hours12, hours24, minutes, ampm);
+      });
+
+    </script>
+  </body>
+</html>
