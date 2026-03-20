@@ -1122,7 +1122,7 @@
         .getElementById('teleport-btn-top')
         .addEventListener('click', () => {
           if (currentTeleportUrl && currentTeleportUrl !== '#') {
-            window.open(currentTeleportUrl, '_blank');
+            window.location.href = currentTeleportUrl;
           }
         });
     </script>
