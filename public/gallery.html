@@ -723,28 +723,20 @@
     <script src="utils.js"></script>
     <script>
       let use24h = false;
-      const kbTargets = [
-        'scale(2) translate(6%, 2%)',
-        'scale(2) translate(-6%, -2%)',
-        'scale(2) translate(2%, -5%)',
-        'scale(2) translate(-2%, 5%)',
-        'scale(2) translate(0%, 0%)',
-        'scale(2) translate(4%, 4%)',
-      ];
-      let lastKbIndex = -1;
       let kbAnimation = null;
+
+      function randomKbTransform() {
+        const x = (Math.random() * 12 - 6).toFixed(1); // -6% to 6%
+        const y = (Math.random() * 12 - 6).toFixed(1); // -6% to 6%
+        return `scale(2) translate(${x}%, ${y}%)`;
+      }
 
       function restartKenBurns() {
         const iframe = document.getElementById('streetview-iframe');
         const current = getComputedStyle(iframe).transform;
         if (kbAnimation) kbAnimation.cancel();
-        let idx;
-        do {
-          idx = Math.floor(Math.random() * kbTargets.length);
-        } while (idx === lastKbIndex);
-        lastKbIndex = idx;
         kbAnimation = iframe.animate(
-          [{ transform: current }, { transform: kbTargets[idx] }],
+          [{ transform: current }, { transform: randomKbTransform() }],
           { duration: 20000, easing: 'ease-in-out', fill: 'forwards' },
         );
       }
