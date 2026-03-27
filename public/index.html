@@ -40,8 +40,8 @@
         background: url('cloud.webp') center top / cover no-repeat #000;
         color: #fff;
         overflow: hidden;
-        height: 100vh;
-        width: 100vw;
+        height: 100dvh;
+        width: 100dvw;
         display: flex;
         align-items: center;
         justify-content: center;
@@ -51,10 +51,10 @@
       /* --- Wooden Table Surface --- */
       #table-surface {
         position: fixed;
-        bottom: 0;
+        top: 30dvh;
+        bottom: -100dvh;
         left: -20%;
         width: 140%;
-        height: 70vh;
         background: url('wood.webp') center / cover no-repeat;
         transform-origin: center top;
         transform: perspective(900px) rotateX(58deg);
@@ -621,11 +621,11 @@
         }
 
         #pizza {
-          display: none;
-          left: -30%;
-          bottom: -8%;
-          width: 350px;
+          left: 5%;
+          bottom: 0%;
+          width: 160px;
           transform: rotateZ(-3deg) scaleX(-1);
+          filter: none;
         }
 
         #metrocard {
