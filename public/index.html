@@ -676,13 +676,7 @@
           <div id="streetview-bezel">
             <div id="streetview">
               <iframe id="streetview-iframe" src="" frameborder="0"></iframe>
-              <video
-                id="streetview-static"
-                src="tv-static.mp4"
-                muted
-                loop
-                preload="auto"
-              ></video>
+              <img id="streetview-static" src="tv-static.gif" alt="" />
               <div id="streetview-overlay"></div>
             </div>
           </div>
@@ -749,6 +743,12 @@
     <script src="env.js"></script>
     <script src="utils.js"></script>
     <script>
+      const urlParams = new URLSearchParams(window.location.search);
+      const noTeleport = urlParams.has('noTeleport');
+      if (noTeleport) {
+        document.getElementById('teleport-btn-top').style.display = 'none';
+      }
+
       let use24h = false;
       let kbAnimation = null;
 
@@ -769,10 +769,11 @@
       }
       function transitionStreetview(embedUrl) {
         const iframe = document.getElementById('streetview-iframe');
-        const staticVideo = document.getElementById('streetview-static');
-        staticVideo.currentTime = 0;
-        staticVideo.play();
-        staticVideo.classList.add('active');
+        const staticEl = document.getElementById('streetview-static');
+        staticEl.src = '';
+        staticEl.offsetHeight;
+        staticEl.src = 'tv-static.gif';
+        staticEl.classList.add('active');
         iframe.src = embedUrl;
         const loadPromise = new Promise((resolve) => {
           iframe.addEventListener('load', resolve, { once: true });
@@ -782,12 +783,7 @@
           setTimeout(resolve, delay),
         );
         Promise.all([loadPromise, delayPromise]).then(() => {
-          staticVideo.classList.remove('active');
-          staticVideo.addEventListener(
-            'transitionend',
-            () => staticVideo.pause(),
-            { once: true },
-          );
+          staticEl.classList.remove('active');
           restartKenBurns();
         });
       }

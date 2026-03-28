@@ -40,8 +40,8 @@
         background: url('cloud.webp') center top / cover no-repeat #000;
         color: #fff;
         overflow: hidden;
-        height: 100vh;
-        width: 100vw;
+        height: 100dvh;
+        width: 100dvw;
         display: flex;
         align-items: center;
         justify-content: center;
@@ -51,10 +51,10 @@
       /* --- Wooden Table Surface --- */
       #table-surface {
         position: fixed;
-        bottom: 0;
+        top: 30dvh;
+        bottom: -100dvh;
         left: -20%;
         width: 140%;
-        height: 70vh;
         background: url('wood.webp') center / cover no-repeat;
         transform-origin: center top;
         transform: perspective(900px) rotateX(58deg);
@@ -658,13 +658,7 @@
           <div id="streetview-bezel">
             <div id="streetview">
               <iframe id="streetview-iframe" src="" frameborder="0"></iframe>
-              <video
-                id="streetview-static"
-                src="tv-static.mp4"
-                muted
-                loop
-                preload="auto"
-              ></video>
+              <img id="streetview-static" src="tv-static.gif" alt="" />
               <div id="streetview-overlay"></div>
             </div>
           </div>
@@ -743,10 +737,11 @@
       }
       function transitionStreetview(embedUrl) {
         const iframe = document.getElementById('streetview-iframe');
-        const staticVideo = document.getElementById('streetview-static');
-        staticVideo.currentTime = 0;
-        staticVideo.play();
-        staticVideo.classList.add('active');
+        const staticEl = document.getElementById('streetview-static');
+        staticEl.src = '';
+        staticEl.offsetHeight;
+        staticEl.src = 'tv-static.gif';
+        staticEl.classList.add('active');
         iframe.src = embedUrl;
         const loadPromise = new Promise((resolve) => {
           iframe.addEventListener('load', resolve, { once: true });
@@ -756,12 +751,7 @@
           setTimeout(resolve, delay),
         );
         Promise.all([loadPromise, delayPromise]).then(() => {
-          staticVideo.classList.remove('active');
-          staticVideo.addEventListener(
-            'transitionend',
-            () => staticVideo.pause(),
-            { once: true },
-          );
+          staticEl.classList.remove('active');
           restartKenBurns();
         });
       }
