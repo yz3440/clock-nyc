@@ -746,6 +746,14 @@
     <script src="env.js"></script>
     <script src="utils.js"></script>
     <script>
+      // Prevent pinch-to-zoom on iOS Safari (ignores viewport meta since iOS 10)
+      document.addEventListener('gesturestart', function (e) { e.preventDefault(); }, { passive: false });
+      document.addEventListener('gesturechange', function (e) { e.preventDefault(); }, { passive: false });
+      document.addEventListener('gestureend', function (e) { e.preventDefault(); }, { passive: false });
+      document.addEventListener('touchmove', function (e) {
+        if (e.touches.length > 1) e.preventDefault();
+      }, { passive: false });
+
       const urlParams = new URLSearchParams(window.location.search);
       const noTeleport = urlParams.has('noTeleport');
       if (noTeleport) {
