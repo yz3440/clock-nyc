@@ -94,7 +94,7 @@
         position: fixed;
         right: 5%;
         bottom: 65vh;
-        width: 250px;
+        width: 400px;
         pointer-events: none;
         z-index: -1;
       }
@@ -539,28 +539,17 @@
       /* --- Responsive --- */
       @media (max-width: 900px) {
         :root {
-          --clock-width: 95vw;
-          --clock-front-height: 100px;
-          --clock-top-depth: 650px;
-        }
-
-        #clock-scene {
-          perspective: 750px;
-        }
-
-        #clock-body {
-          transform: rotateX(-58deg);
-        }
-      }
-
-      @media (max-width: 600px) {
-        :root {
           --clock-width: 98vw;
-          --clock-front-height: 80px;
-          --clock-top-depth: 650px;
+          --clock-front-height: 9dvh;
+          --clock-top-depth: 81dvh;
+        }
+
+        body {
+          padding-top: 80dvh;
         }
 
         #clock-scene {
+          height: auto;
           perspective: 600px;
         }
 
@@ -793,7 +782,13 @@
         const delayPromise = new Promise((resolve) =>
           setTimeout(resolve, delay),
         );
-        Promise.all([loadPromise, delayPromise]).then(() => {
+        const timeoutPromise = new Promise((resolve) =>
+          setTimeout(resolve, 5000),
+        );
+        Promise.race([
+          Promise.all([loadPromise, delayPromise]),
+          timeoutPromise,
+        ]).then(() => {
           staticEl.classList.remove('active');
           restartKenBurns();
         });
